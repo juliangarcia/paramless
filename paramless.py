@@ -3,15 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 
-def one_norm_distance(u, v):
-    """
-    Given two arrays returns the sum of position by position distances.
-    Used as a distance function.
-    """
-    return np.sum(np.abs(u - v))
-
-
-def point_mutation(vector, epsilon):
+def point_mutation(vector, epsilon, **kwargs):
     """
     This is the simplest mutation function, it hits one single position of the vector and pushes it up (or down) by epsilon.
     """
@@ -24,6 +16,14 @@ def point_mutation(vector, epsilon):
     return mutant
 
 
+def one_norm_distance(u, v):
+    """
+    Given two arrays returns the sum of position by position distances.
+    Used as a distance function.
+    """
+    return np.sum(np.abs(u - v))
+
+
 def target_function(x):
     """
     One target function for testing
@@ -31,36 +31,46 @@ def target_function(x):
     return x ** 2.0
 
 
-def evolution_step(resident_surface, target_surface, mutation_function=point_mutation, distance_function=one_norm_distance, **kwargs):
+def distance_fitness_function(resident, mutant, target_surface, **kwargs):
+    fitness_resident = 1.0 / one_norm_distance(resident, target_surface)
+    fitness_mutant = 1.0 / one_norm_distance(mutant, target_surface)
+    return fitness_resident, fitness_mutant
+
+
+def evolution_step(resident_surface, fitness_function, mutation_function, **kwargs):
     """
     One generation iteration
     """
+    invasion = False
     mutant = mutation_function(resident_surface, **kwargs)
-    distance_resident = distance_function(resident_surface, target_surface)
-    distance_mutant = distance_function(mutant, target_surface)
-    if distance_mutant < distance_resident:
+    [fitness_resident, fitness_mutant] = fitness_function(
+        resident_surface, mutant, **kwargs)
+    if fitness_resident < fitness_mutant:
         resident_surface = np.copy(mutant)
-        distance_resident = distance_mutant
-    return resident_surface, distance_resident
+        invasion = True
+    return resident_surface, invasion
 
 
-def evolve(initial_surface, target_surface, mutation_function, distance_function, target_distance, maximum_iterations=100000, return_time_series=False, record_interval=1000, **kwargs):
+def evolve(initial_surface, fitness_function, mutation_function, iterations, return_time_series=False, seed=None, **kwargs):
     """
     Evolve to a target
     Returns a dict full of information, plus time series data if required
     """
+    np.random.seed(seed)
     time_series = None
     if return_time_series:
-        time_series = dict()
+        time_series = [{"in": 0, "out": -1, "resident": np.copy(initial_surface)}]
     resident = np.copy(initial_surface)
-    for step in xrange(maximum_iterations):
-        resident, distance_resident = evolution_step(
-            resident, target_surface, mutation_function, distance_function, **kwargs)
-        if distance_resident < target_distance:
-            return {"evolved_surface": resident, "distance to target": distance_resident, "number_of_steps": step, "finished": True}, time_series
-        if (return_time_series and (step % record_interval == 0)):
-            time_series[step] = resident.copy()
-    return {"evolved_surface": resident, "distance to target": distance_resident, "number_of_steps": step, "finished": False}, time_series
+    for step in xrange(1, iterations):
+        resident, invasion = evolution_step(
+            resident, fitness_function, mutation_function, **kwargs)
+        if (return_time_series and invasion):
+            time_series[-1]["out"] = step
+            time_series.append({"in": step, "out": -1, "resident": resident.copy()})
+    if return_time_series:
+        return resident, time_series
+    else:
+        return resident
 
 
 def _update_line(frameid, time_series, frame_time_dict, domain, line, time_text):
@@ -79,17 +89,17 @@ def create_video_from_time_series(time_series, target_surface, domain, filename,
     """
     # preliminaries
 
-    #define a writer
+    # define a writer
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=50, metadata=dict(artist='Me'), bitrate=1800)
-    #create figure with
+    # create figure with
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
                          xlim=(min(domain) - 0.01, max(domain) + 0.01), ylim=(min(target_surface) - 0.01, max(target_surface) + 0.01))
     ax.grid()
-    #plot the target
+    # plot the target
     ax.plot(domain, target_surface)
-    #elements that change in the animatio
+    # elements that change in the animatio
     l, = ax.plot([], [], 'r-')
     text_position_x = 0.02
     text_position_y = 0.02
@@ -104,7 +114,7 @@ def create_video_from_time_series(time_series, target_surface, domain, filename,
     for key in list_of_keys:
         frame_time_dict[frame_identification] = key
         frame_identification += 1
-    #once I have the plotting elements go ahead and create the animation
+    # once I have the plotting elements go ahead and create the animation
     line_ani = animation.FuncAnimation(
         fig, _update_line, len(list_of_keys), fargs=[time_series, frame_time_dict, domain, l, time_text],
         interval=1, blit=True)
