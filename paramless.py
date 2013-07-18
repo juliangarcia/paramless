@@ -58,15 +58,23 @@ def evolve(initial_surface, fitness_function, mutation_function, iterations, ret
     """
     np.random.seed(seed)
     time_series = None
-    if return_time_series:
-        time_series = [{"in": 0, "out": -1, "resident": np.copy(initial_surface)}]
+    last_entry_time = 0
     resident = np.copy(initial_surface)
+    seq = 0
+    time_series = None
+    if return_time_series:
+        time_series = []
+    previous_resident = None
     for step in xrange(1, iterations):
+        if return_time_series:
+            previous_resident = np.copy(resident)
         resident, invasion = evolution_step(
             resident, fitness_function, mutation_function, **kwargs)
         if (return_time_series and invasion):
-            time_series[-1]["out"] = step
-            time_series.append({"in": step, "out": -1, "resident": resident.copy()})
+            time_series.append({
+                               "seq": seq, "alive": step - last_entry_time, "resident": previous_resident})
+            last_entry_time = step
+            seq += 1
     if return_time_series:
         return resident, time_series
     else:
