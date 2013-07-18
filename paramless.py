@@ -78,17 +78,24 @@ def create_video_from_time_series(time_series, target_surface, domain, filename,
     Creates a video from a time series dict
     """
     # preliminaries
+
+    #define a writer
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=50, metadata=dict(artist='Me'), bitrate=1800)
-    fig1 = plt.figure()
-    plt.plot(domain, target_surface)
-    l, = plt.plot([], [], 'r-')
-    plt.xlim(min(domain) - 0.01, max(domain) + 0.01)
-    plt.ylim(min(target_surface) - 0.01, max(target_surface) + 0.01)
-    text_position_x = 0.0
-    text_position_y = -1.0
-    time_text = plt.text(text_position_x, text_position_y, '')
-    # create frameid:time dictionary
+    #create figure with
+    fig = plt.figure()
+    ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
+                         xlim=(min(domain) - 0.01, max(domain) + 0.01), ylim=(min(target_surface) - 0.01, max(target_surface) + 0.01))
+    ax.grid()
+    #plot the target
+    ax.plot(domain, target_surface)
+    #elements that change in the animatio
+    l, = ax.plot([], [], 'r-')
+    text_position_x = 0.02
+    text_position_y = 0.02
+    time_text = ax.text(
+        text_position_x, text_position_y, '', transform=ax.transAxes)
+    # create frameid:time dictionary with the actual surfaces to plot
     time_series_keys = time_series.keys()
     list_of_keys = np.sort(time_series_keys)[0::len(
         time_series_keys) / approximate_number_of_frames]
@@ -97,8 +104,9 @@ def create_video_from_time_series(time_series, target_surface, domain, filename,
     for key in list_of_keys:
         frame_time_dict[frame_identification] = key
         frame_identification += 1
+    #once I have the plotting elements go ahead and create the animation
     line_ani = animation.FuncAnimation(
-        fig1, _update_line, len(list_of_keys), fargs=[time_series, frame_time_dict, domain, l, time_text],
+        fig, _update_line, len(list_of_keys), fargs=[time_series, frame_time_dict, domain, l, time_text],
         interval=1, blit=True)
     line_ani.save(filename, writer=writer)
 
