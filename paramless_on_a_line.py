@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
+from collections import OrderedDict as OrderedDict
+from copy import deepcopy as deepcopy
 
 def point_mutation(vector, epsilon, **kwargs):
     """
@@ -61,9 +62,8 @@ def evolve(initial_surface, fitness_function, mutation_function, iterations, ret
     last_entry_time = 0
     resident = np.copy(initial_surface)
     seq = 0
-    time_series = None
     if return_time_series:
-        time_series = []
+        time_series = OrderedDict()
     previous_resident = None
     for step in xrange(1, iterations):
         if return_time_series:
@@ -71,14 +71,24 @@ def evolve(initial_surface, fitness_function, mutation_function, iterations, ret
         resident, invasion = evolution_step(
             resident, fitness_function, mutation_function, **kwargs)
         if (return_time_series and invasion):
-            time_series.append({
-                               "seq": seq, "alive": step - last_entry_time, "resident": previous_resident})
+            time_series[seq] = {"alive": step - last_entry_time, "resident": previous_resident}
             last_entry_time = step
             seq += 1
     if return_time_series:
         return resident, time_series
     else:
         return resident
+
+
+def _number_of_generations_in_summary_dict(summary_ordered_dict):
+    """
+    Given an Ordered dict with entries {seq: [resident, alive]}
+    Counts the number of generations by summing up all the alive times
+    """
+    suma = 0
+    for i in xrange(min(summary_ordered_dict.keys()), max(summary_ordered_dict.keys())+1):
+        suma += summary_ordered_dict[i]['alive']
+    return suma
 
 
 def _update_line(frameid, time_series, frame_time_dict, domain, line, time_text):
@@ -91,12 +101,29 @@ def _update_line(frameid, time_series, frame_time_dict, domain, line, time_text)
     return line, time_text,
 
 
-def create_video_from_time_series(time_series, target_surface, domain, filename, approximate_number_of_frames):
+def _expand_compact_time_series(series_compact, record_every):
+    ans = OrderedDict()
+    total_generations = _number_of_generations_in_summary_dict(series_compact)
+    working_copy = deepcopy(series_compact)
+    key_top = working_copy.keys()[0]
+    for step in xrange(total_generations):
+        if step % record_every == 0:
+            ans[step] = working_copy[key_top]['resident'].copy()
+        working_copy[key_top]['alive'] = working_copy[key_top]['alive'] - 1
+        if working_copy[key_top]['alive'] == 0:
+            del working_copy[key_top]
+            if len(working_copy) > 0:
+                key_top = working_copy.keys()[0]
+    return ans
+
+
+def create_video_from_time_series(series_compact, target_surface, domain, filename, approximate_number_of_frames, record_every):
     """
     Creates a video from a time series dict
     """
     # preliminaries
-
+    #preprocess series
+    time_series = _expand_compact_time_series(series_compact, record_every)
     # define a writer
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=50, metadata=dict(artist='Me'), bitrate=1800)
