@@ -44,7 +44,7 @@ def evolution_step(resident_surface, fitness_function, mutation_function, atol, 
     mutant = mutation_function(resident_surface, **kwargs)
     [fitness_resident, fitness_mutant] = fitness_function(
         resident_surface, mutant, **kwargs)
-    if fitness_resident < fitness_mutant and abs(fitness_resident-fitness_mutant) > atol:
+    if fitness_resident < fitness_mutant and abs(fitness_resident - fitness_mutant) > atol:
         resident_surface = np.copy(mutant)
         invasion = True
     return resident_surface, invasion
@@ -141,8 +141,11 @@ def create_video_from_time_series(series_compact, target_surface, domain, filena
         text_position_x, text_position_y, '', transform=ax.transAxes)
     # create frameid:time dictionary with the actual surfaces to plot
     time_series_keys = time_series.keys()
-    list_of_keys = np.sort(time_series_keys)[0::len(
-        time_series_keys) / approximate_number_of_frames]
+    interval = len(
+        time_series_keys) / approximate_number_of_frames
+    if interval <= 0:
+        interval = 1
+    list_of_keys = np.sort(time_series_keys)[0::interval]
     frame_time_dict = dict()
     frame_identification = 0
     for key in list_of_keys:
