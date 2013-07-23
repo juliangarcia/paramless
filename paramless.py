@@ -6,7 +6,7 @@ from copy import deepcopy as deepcopy
 
 
 # default tolerance for float comparisons
-DEFAULT_ATOL = 1e-3
+DEFAULT_ATOL = 1e-8
 
 
 def point_mutation(vector, mutation_epsilon, **kwargs):
