@@ -4,7 +4,6 @@ import matplotlib.animation as animation
 from collections import OrderedDict as OrderedDict
 from copy import deepcopy as deepcopy
 
-
 # default tolerance for float comparisons
 DEFAULT_ATOL = 1e-8
 
