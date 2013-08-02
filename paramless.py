@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -18,6 +19,33 @@ def point_mutation(vector, mutation_epsilon, **kwargs):
         mutant[position] = mutant[position] + mutation_epsilon
     else:
         mutant[position] = mutant[position] - mutation_epsilon
+    return mutant
+
+def point_mutation_distribution(vector, mutation_epsilon, **kwargs):
+    #moves up a random point, and down a random point at the same time
+    mutant = np.copy(vector)
+    (position_up, position_down) = np.random.randint(len(vector), size=2)
+    adjusted_epsilon = mutation_epsilon
+    #taking care that no negative values are allowed
+    if (mutant[position_down]-mutation_epsilon) <0:
+        adjusted_epsilon = mutant[position_down]
+    mutant[position_up] = mutant[position_up] + adjusted_epsilon
+    mutant[position_down] = mutant[position_down] - adjusted_epsilon
+    return mutant
+
+
+def _gaussian_mutation_helper(x, mutation_epsilon, loc, width):
+    return mutation_epsilon*(math.e**-(((x-loc)**2.0)/width))
+
+def gaussian_mutation(vector, mutation_epsilon, domain, width, **kwargs):
+    location_index = np.random.randint(0, len(vector))
+    location_value = domain[location_index]
+    perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand()*width)
+    mutant=np.copy(vector) 
+    if (np.random.randint(2)):
+        mutant+=perturbation
+    else:
+        mutant-=perturbation
     return mutant
 
 
@@ -155,6 +183,7 @@ def create_video_from_time_series(series_compact, target_surface, domain, filena
         fig, _update_line, len(list_of_keys), fargs=[time_series, frame_time_dict, domain, l, time_text],
         interval=1, blit=True)
     line_ani.save(filename, writer=writer)
+    return line_ani
 
 
 def main():
