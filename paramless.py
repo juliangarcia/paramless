@@ -9,7 +9,7 @@ from copy import deepcopy as deepcopy
 DEFAULT_ATOL = 1e-8
 
 
-def point_mutation(vector, mutation_epsilon, **kwargs):
+def point_mutation(vector, mutation_epsilon, force_positive=False, **kwargs):
     """
     This is the simplest mutation function, it hits one single position of the vector and pushes it up (or down) by epsilon.
     """
@@ -19,6 +19,8 @@ def point_mutation(vector, mutation_epsilon, **kwargs):
         mutant[position] = mutant[position] + mutation_epsilon
     else:
         mutant[position] = mutant[position] - mutation_epsilon
+    if force_positive and mutant[position] < 0.0:
+        mutant[position] = 0.0
     return mutant
 
 def point_mutation_distribution(vector, mutation_epsilon, **kwargs):
@@ -37,15 +39,37 @@ def point_mutation_distribution(vector, mutation_epsilon, **kwargs):
 def _gaussian_mutation_helper(x, mutation_epsilon, loc, width):
     return mutation_epsilon*(math.e**-(((x-loc)**2.0)/width))
 
-def gaussian_mutation(vector, mutation_epsilon, domain, width, **kwargs):
+def gaussian_mutation(vector, mutation_epsilon, domain, width, force_positive=False, **kwargs):
     location_index = np.random.randint(0, len(vector))
     location_value = domain[location_index]
-    perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand()*width)
     mutant=np.copy(vector) 
     if (np.random.randint(2)):
+        perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand()*width)
         mutant+=perturbation
     else:
+        adjusted_epsilon = mutation_epsilon
+        if force_positive:
+            adjusted_epsilon = np.min(vector)
+        perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=adjusted_epsilon, loc=location_value, width=np.random.rand()*width)
         mutant-=perturbation
+    return mutant
+
+
+def gaussian_mutation_distribution(vector, mutation_epsilon, domain, width, **kwargs):
+    (location_index_up, location_index_down) = np.random.randint(len(vector), size=2)
+    location_value_up = domain[location_index_up]
+    location_value_down = domain[location_index_down]
+    mutant=np.copy(vector) 
+    minimum_value = np.min(vector)
+    if minimum_value - mutation_epsilon <0:
+        adjusted_epsilon=minimum_value
+    else:
+        adjusted_epsilon = mutation_epsilon
+    width = np.random.rand()*width
+    perturbation_up = _gaussian_mutation_helper(domain, mutation_epsilon=adjusted_epsilon, loc=location_value_up, width=width)
+    perturbation_down = _gaussian_mutation_helper(domain, mutation_epsilon=adjusted_epsilon, loc=location_value_down, width=width)
+    mutant+=perturbation_up
+    mutant-=perturbation_down
     return mutant
 
 
@@ -63,7 +87,7 @@ def distance_fitness_function(resident, mutant, target_surface, **kwargs):
     return fitness_resident, fitness_mutant
 
 
-def evolution_step(resident_surface, fitness_function, mutation_function, atol, **kwargs):
+def evolution_step(resident_surface, fitness_function, mutation_function, atol, *args, **kwargs):
     """
     One generation iteration
     """
@@ -79,8 +103,8 @@ def evolution_step(resident_surface, fitness_function, mutation_function, atol, 
 
 def evolve(initial_surface, fitness_function, mutation_function, iterations, atol=DEFAULT_ATOL, return_time_series=False, seed=None, **kwargs):
     """
-    Evolve to a target
-    Returns a dict full of information, plus time series data if required
+    Evolve 
+    Returns last resident , plus time series data if required
     """
     np.random.seed(seed)
     time_series = None
@@ -89,7 +113,7 @@ def evolve(initial_surface, fitness_function, mutation_function, iterations, ato
     seq = 0
     if return_time_series:
         time_series = OrderedDict()
-    previous_resident = None
+    previous_resident = np.zeros_like(initial_surface)
     for step in xrange(1, iterations):
         if return_time_series:
             previous_resident = np.copy(resident)
@@ -143,7 +167,7 @@ def _expand_compact_time_series(series_compact, record_every):
     return ans
 
 
-def create_video_from_time_series(series_compact, target_surface, domain, filename, approximate_number_of_frames, record_every):
+def create_video_from_time_series(series_compact, target_surface, domain, filename, approximate_number_of_frames, record_every, ylim=None, xlim=None):
     """
     Creates a video from a time series dict
     """
@@ -155,11 +179,18 @@ def create_video_from_time_series(series_compact, target_surface, domain, filena
     writer = Writer(fps=50, metadata=dict(artist='Me'), bitrate=1800)
     # create figure with
     fig = plt.figure()
-    ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
-                         xlim=(min(domain) - 0.01, max(domain) + 0.01), ylim=(min(target_surface) - 0.01, max(target_surface) + 0.01))
+    if xlim is None or ylim is None:
+        ylim = (-0.01, 3.0)
+        xlim = (-0.01, 1.01)
+    if target_surface is not None:
+        ylim = (min(target_surface) - 0.01, max(target_surface) + 0.01)
+        xlim = (min(domain) - 0.01, max(domain) + 0.01)
+    ax = fig.add_subplot(111, aspect='auto', autoscale_on=False,
+                         xlim=xlim, ylim=ylim)
     ax.grid()
     # plot the target
-    ax.plot(domain, target_surface)
+    if target_surface is not None:
+        ax.plot(domain, target_surface)
     # elements that change in the animatio
     l, = ax.plot([], [], 'r-')
     text_position_x = 0.02
