@@ -2,7 +2,6 @@
 *.mp4
 *.html
 *.py[cod]
-
 # C extensions
 *.so
 
@@ -39,3 +38,4 @@ nosetests.xml
 .pydevproject/
 **/.ipynb_checkpoints/*
 notebooks/.ipynb_checkpoints/*.*
+.pydevproject
