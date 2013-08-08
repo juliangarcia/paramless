@@ -9,11 +9,9 @@ from copy import deepcopy as deepcopy
 DEFAULT_ATOL = 1e-8
 
 
-def point_mutation(vector, mutation_epsilon, maximum_value=None, minimum_value=None, **kwargs):
+def point_mutation(vector, mutation_epsilon, force_positive=False, **kwargs):
     """
-    This is the simplest mutation function, it hits one single position of the vector and pushes it up (or down) by mutation_epsilon.
-    maximum_value is the maximum allowed value for the surface, if not None.
-    minimum_value is the minimum allowed value for the surface, if not None.
+    This is the simplest mutation function, it hits one single position of the vector and pushes it up (or down) by epsilon.
     """
     mutant = np.copy(vector)
     position = np.random.randint(len(vector))
@@ -21,10 +19,8 @@ def point_mutation(vector, mutation_epsilon, maximum_value=None, minimum_value=N
         mutant[position] = mutant[position] + mutation_epsilon
     else:
         mutant[position] = mutant[position] - mutation_epsilon
-    if minimum_value is not None and mutant[position] < minimum_value:
-        mutant[position] = minimum_value
-    if maximum_value is not None and mutant[position] > maximum_value:
-        mutant[position] = maximum_value
+    if force_positive and mutant[position] < 0.0:
+        mutant[position] = 0.0
     return mutant
 
 def point_mutation_distribution(vector, mutation_epsilon, **kwargs):
@@ -43,22 +39,17 @@ def point_mutation_distribution(vector, mutation_epsilon, **kwargs):
 def _gaussian_mutation_helper(x, mutation_epsilon, loc, width):
     return mutation_epsilon*(math.e**-(((x-loc)**2.0)/width))
 
-def gaussian_mutation(vector, mutation_epsilon, domain, width, maximum_value=None, minimum_value=None, **kwargs):
+def gaussian_mutation(vector, mutation_epsilon, domain, width, force_positive=False, **kwargs):
     location_index = np.random.randint(0, len(vector))
     location_value = domain[location_index]
     mutant=np.copy(vector) 
     if (np.random.randint(2)):
-        #perturbation upwards
-        adjusted_epsilon = mutation_epsilon
-        if maximum_value is not None and vector[location_index] + mutation_epsilon >=maximum_value:
-            adjusted_epsilon = maximum_value - location_value
-        perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=adjusted_epsilon, loc=location_value, width=np.random.rand()*width)
+        perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand()*width)
         mutant+=perturbation
     else:
-        #perturbation downwards
         adjusted_epsilon = mutation_epsilon
-        if minimum_value is not None and vector[location_index] - mutation_epsilon <= minimum_value:
-            adjusted_epsilon = minimum_value - vector[location_index]
+        if force_positive:
+            adjusted_epsilon = np.min(vector)
         perturbation = _gaussian_mutation_helper(domain, mutation_epsilon=adjusted_epsilon, loc=location_value, width=np.random.rand()*width)
         mutant-=perturbation
     return mutant
@@ -69,9 +60,9 @@ def gaussian_mutation_distribution(vector, mutation_epsilon, domain, width, **kw
     location_value_up = domain[location_index_up]
     location_value_down = domain[location_index_down]
     mutant=np.copy(vector) 
-    #avoid negative
-    if vector[location_index_down] - mutation_epsilon <0:
-        adjusted_epsilon=mutation_epsilon - vector[location_index_down]
+    minimum_value = np.min(vector)
+    if minimum_value - mutation_epsilon <0:
+        adjusted_epsilon=minimum_value
     else:
         adjusted_epsilon = mutation_epsilon
     width = np.random.rand()*width
