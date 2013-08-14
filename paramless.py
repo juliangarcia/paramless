@@ -53,7 +53,7 @@ def _attemp_point_mutation(vector, mutation_epsilon):
     return mutant
 
 
-def point_mutation(vector, mutation_epsilon, lower_bound=None, upper_bound=None):
+def point_mutation(vector, mutation_epsilon, lower_bound=None, upper_bound=None, **kwargs):
     is_inside = False
     attemp = 0
     while (not is_inside):
