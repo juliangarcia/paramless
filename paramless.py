@@ -14,7 +14,10 @@ from copy import deepcopy as deepcopy
 # default tolerance for float comparisons
 DEFAULT_ATOL = 1e-8
 
-def within_bounds(vector, lower_bound=None, upper_bound=None):
+#maximum iterations
+MAX_ITERATIONS = 1000000
+
+def _within_bounds(vector, lower_bound, upper_bound):
     '''
     @summary: Determines if the values of vector are in the [lower_bound, upper_bound] interval
     @param vector: surface to test
@@ -30,7 +33,7 @@ def within_bounds(vector, lower_bound=None, upper_bound=None):
     return True
 
 
-def point_mutation(vector, mutation_epsilon, lower_bound=None, upper_bound=None):
+def _attemp_point_mutation(vector, mutation_epsilon):
     '''
     @summary: This is the simplest mutation function, it hits one single position of the vector and pushes it up (or down) by epsilon.
     If lower_bound and upper_bound are not None, it keeps the mutant bounded by only allowing in mutations that do not take things 
@@ -47,10 +50,18 @@ def point_mutation(vector, mutation_epsilon, lower_bound=None, upper_bound=None)
         mutant[position] = mutant[position] + mutation_epsilon
     else:
         mutant[position] = mutant[position] - mutation_epsilon
-    if lower_bound is not None and mutant[position] < lower_bound:
-        mutant[position] = lower_bound
-    if upper_bound is not None and mutant[position] > upper_bound:
-        mutant[position] = upper_bound
+    return mutant
+
+
+def point_mutation(vector, mutation_epsilon, lower_bound=None, upper_bound=None):
+    is_inside = False
+    attemp = 0
+    while (not is_inside):
+        mutant = _attemp_point_mutation(vector, mutation_epsilon)
+        is_inside=_within_bounds(mutant, lower_bound, upper_bound)
+        attemp+=1
+        if attemp > MAX_ITERATIONS:
+            raise RuntimeError("Attempted too many mutations without producing anythin within bounds")
     return mutant
 
 
@@ -71,27 +82,31 @@ def _gaussian_mutation_helper(x, mutation_epsilon, loc, width):
     return mutation_epsilon * (math.e ** -(((x - loc) ** 2.0) / width))
 
 
-def gaussian_mutation(vector, mutation_epsilon, domain, width, lower_bound=None, upper_bound=None, **kwargs):
+def _attemp_gaussian_mutation(vector, mutation_epsilon, domain, width, lower_bound=None, upper_bound=None):
     location_index = np.random.randint(0, len(vector))
     location_value = domain[location_index]
     mutant = np.copy(vector)
-    function_value_at_location = vector[location_index]
     # upwards
     if (np.random.randint(2)):
-        adjusted_epsilon = mutation_epsilon
-        if function_value_at_location + mutation_epsilon > upper_bound:
-            adjusted_epsilon = upper_bound - function_value_at_location
         perturbation = _gaussian_mutation_helper(
-            domain, mutation_epsilon=adjusted_epsilon, loc=location_value, width=np.random.rand() * width)
+            domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand() * width)
         mutant += perturbation
     # downwards
     else:
-        adjusted_epsilon = mutation_epsilon
-        if function_value_at_location - mutation_epsilon < lower_bound:
-            adjusted_epsilon = function_value_at_location - lower_bound
         perturbation = _gaussian_mutation_helper(
-            domain, mutation_epsilon=adjusted_epsilon, loc=location_value, width=np.random.rand() * width)
+            domain, mutation_epsilon=mutation_epsilon, loc=location_value, width=np.random.rand() * width)
         mutant -= perturbation
+    return mutant
+
+def gaussian_mutation(vector, mutation_epsilon, domain, width, lower_bound=None, upper_bound=None, **kwargs):
+    is_inside = False
+    attemp = 0
+    while (not is_inside):
+        mutant = _attemp_gaussian_mutation(vector, mutation_epsilon, domain, width, lower_bound=lower_bound, upper_bound=upper_bound)
+        is_inside=_within_bounds(mutant, lower_bound, upper_bound)
+        attemp+=1
+        if attemp > MAX_ITERATIONS:
+            raise RuntimeError("Attempted too many mutations without producing anythin within bounds")
     return mutant
 
 
